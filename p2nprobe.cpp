@@ -1,16 +1,4 @@
-#include <iostream>
-#include <pcap.h>
-#include <stdio.h>
-#include <cstring>
-
-//struct for input arguments
-typedef struct {
-    char* addr;
-    int port;
-    char* file_path;
-    int act_timeout;
-    int inact_timeout;
-} Arguments;
+#include "p2nprobe.h"
 
 //copied from my ipk project
 //function that calculate ip address by name
@@ -66,9 +54,46 @@ int input_parse(int argc, char *argv[], Arguments *value){
     return 0;
 }
 
+void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
+    fprintf(stdout, "entered function\n");
+//    // Вказівник на IP заголовок
+//    struct ip* ipHeader = (struct ip*)(packet + 14);  // Ethernet заголовок має розмір 14 байт
+//    // Якщо це не IP-пакет, виходимо
+//    if (ipHeader->ip_p != IPPROTO_TCP) {
+//        fprintf(stdout, "not tcp ret\n");
+//        return;
+//    }
+    //get packet type
+    struct ether_header *ether_head = (struct ether_header *) packet;
+    int etherType = ntohs(ether_head->ether_type);
+    if (etherType == 0x0800) { // IPv4
+        //get ip4 header
+        struct ip *ip_head = (struct ip *) (packet + sizeof(struct ether_header));
+        //get IO address from header
+        char src[INET_ADDRSTRLEN];
+        char dst[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(ip_head->ip_src), src, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &(ip_head->ip_dst), dst, INET_ADDRSTRLEN);
+        std::cout << "src IP: " << src << std::endl;
+        std::cout << "dst IP: " << dst << std::endl;
+    }else{
+        return;
+    }
+
+    // Вказівник на TCP заголовок (після IP заголовка)
+//    struct tcphdr* tcpHeader = (struct tcphdr*)(packet + 14 + ipHeader->ip_hl * 4);
+    // Виведення базової інформації про TCP пакет
+//    std::cout << "Source IP: " << inet_ntoa(ipHeader->ip_src) << "\n";
+//    std::cout << "Destination IP: " << inet_ntoa(ipHeader->ip_dst) << "\n";
+//    std::cout << "Source Port: " << ntohs(tcpHeader->th_sport) << "\n";
+//    std::cout << "Destination Port: " << ntohs(tcpHeader->th_dport) << "\n";
+//    std::cout << "-------------------------------------------\n";
+}
+
+
 int main(int argc, char *argv[]) {
-    //std::cout << "Hello World!";
-    fprintf(stdout, "Hello World!\n");
+    pcap_t *pcap;
+    char errbuf[PCAP_ERRBUF_SIZE];
 
     Arguments input_val;
     input_val.addr = nullptr;
@@ -81,14 +106,42 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Otevření PCAP souboru
+    pcap = pcap_open_offline(input_val.file_path, errbuf);
+    if (pcap == NULL) {
+        fprintf(stderr, "Nemohu otevřít PCAP soubor: %s\n", errbuf);
+        return 1;
+    }
+    // Iterace přes pakety v PCAP souboru
+    //pcap_loop(pcap, 0, packet_handler, NULL);
+    // Запуск обробки кожного пакета
+    if (pcap_loop(pcap, 0, packet_handler, nullptr) < 0) {
+        std::cerr << "Error reading packets: " << pcap_geterr(pcap) << "\n";
+        return 1;
+    }
 
-    //дял перевірки змінних
+    // Otevření PCAP souboru a inicializace socketu pro komunikaci s kolektorem
+
+    // Nastavení časovačů pro aktivní a neaktivní timeouty
+
+    // Zpracování PCAP souboru pomocí pcap_loop nebo pcap_next_ex
+
+    // Při detekci toku nebo po timeoutu odeslání dat na kolektor
+
+    // Uvolnění zdrojů a ukončení programu
+
+
+
+
+    //для перевірки змінних
     std::cout << "Host: " << input_val.addr << "\n";
     std::cout << "Port: " << input_val.port << "\n";
     std::cout << "PCAP file: " << input_val.file_path << "\n";
     std::cout << "Active timeout: " << input_val.act_timeout << " seconds\n";
     std::cout << "Inactive timeout: " << input_val.inact_timeout << " seconds\n";
 
+    // Zavření souboru
+    pcap_close(pcap);
 
     return 0;
 }
