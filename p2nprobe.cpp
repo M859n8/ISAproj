@@ -54,7 +54,7 @@ int input_parse(int argc, char *argv[], Arguments *value){
     return 0;
 }
 
-void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
+void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, const u_char *packet) {
     //get packet type
     struct ether_header *ether_head = (struct ether_header *) packet;
     int etherType = ntohs(ether_head->ether_type);
@@ -74,17 +74,80 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u
 
     // Вказівник на TCP заголовок (після IP заголовка)
     struct tcphdr* tcp_head = (struct tcphdr*)(packet + sizeof(struct ether_header)  + ip_head->ip_hl * 4);
-    // Виведення базової інформації про TCP пакет
-    std::cout << "Source IP: " << inet_ntoa(ip_head->ip_src) << "\n";
-    std::cout << "Destination IP: " << inet_ntoa(ip_head->ip_dst) << "\n";
-    std::cout << "Source Port: " << ntohs(tcp_head->th_sport) << "\n";
-    std::cout << "Destination Port: " << ntohs(tcp_head->th_dport) << "\n";
-    std::cout << "-------------------------------------------\n";
+
+//    // Виведення базової інформації про TCP пакет
+//    std::cout << "Source IP: " << inet_ntoa(ip_head->ip_src) << "\n";
+//    std::cout << "Destination IP: " << inet_ntoa(ip_head->ip_dst) << "\n";
+//    std::cout << "Source Port: " << ntohs(tcp_head->th_sport) << "\n";
+//    std::cout << "Destination Port: " << ntohs(tcp_head->th_dport) << "\n";
+//
+    struct timeval time = pcap_head->ts;
+    uint16_t src_port = ntohs(tcp_head->source);
+    uint16_t dst_port = ntohs(tcp_head->dest);
+
+    // Отримання IP-адрес
+    std::string src_ip = inet_ntoa(ip_head->ip_src);
+    std::string dst_ip = inet_ntoa(ip_head->ip_dst);
+    int bytes = pcap_head->len;
+    // Створюємо ключ для хеш-таблиці
+    std::string key = create_hash_key(src_ip, dst_ip, src_port, dst_port);
+    // Якщо флоу вже є у таблиці, оновлюємо його
+    if (flow_table.find(key) != flow_table.end()) {
+        Flow& flow = flow_table[key];
+        flow.packet_count += 1;
+        flow.byte_count += bytes;
+        flow.last_packet_time = time;
+        //fprintf(stdout, "   update\n");
+    } else {
+        // Інакше створюємо новий флоу
+        Flow new_flow = create_flow(src_ip, dst_ip, src_port, dst_port, bytes, time);
+        flow_table[key] = new_flow;
+        //fprintf(stdout, "   create\n");
+
+    }
+
 }
 
-//std::string hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port) {
-//    return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
-//}
+std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port) {
+    return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
+}
+
+Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port, int dst_port, int bytes,  struct timeval time){
+    Flow new_flow;
+    new_flow.src_ip = src_ip;
+    new_flow.dst_ip = dst_ip;
+    new_flow.src_port = src_port;
+    new_flow.dst_port = dst_port;
+    new_flow.packet_count = 1;
+    new_flow.byte_count = bytes;
+    new_flow.first_packet_time = time;
+    new_flow.last_packet_time = time;
+    return new_flow;
+
+}
+
+// Функція для виведення флоу на stdout
+void print_flows() {
+    fprintf(stdout, "entered print func\n");
+    for (const auto& entry : flow_table) {
+        const Flow& flow = entry.second;
+        std::cout << "Flow: " << flow.src_ip << ":" << flow.src_port << " -> "
+                  << flow.dst_ip << ":" << flow.dst_port << "\n"
+                  << "Packets ount: " << flow.packet_count << ", Bytes: " << flow.byte_count << "\n";
+        time_t packet_time_sec = flow.first_packet_time.tv_sec; // секунди
+        suseconds_t packet_time_usec = flow.first_packet_time.tv_usec; // мікросекунди
+
+        // Конвертуємо час у формат, зручний для читання
+        struct tm *tm_info = localtime(&packet_time_sec);
+        char time_buffer[64];
+        strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+        std::cout << "Час пакету: " << time_buffer << "." << packet_time_usec << std::endl;
+
+        std::cout << "-------------------------------------------\n";
+    }
+
+}
 
 
 int main(int argc, char *argv[]) {
@@ -136,6 +199,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Active timeout: " << input_val.act_timeout << " seconds\n";
     std::cout << "Inactive timeout: " << input_val.inact_timeout << " seconds\n";
 
+    print_flows();
     // Zavření souboru
     pcap_close(pcap);
 

@@ -13,5 +13,9 @@ run:
 	make
 	./$(EXEC)  localhost:2055 test1.pcap -a 5 -i 30
 
+save:
+	make
+	./$(EXEC)  localhost:2055 test1.pcap -a 5 -i 30 >> output.txt
+
 clean:
 	rm -f $(EXEC)
