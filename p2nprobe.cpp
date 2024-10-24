@@ -55,40 +55,36 @@ int input_parse(int argc, char *argv[], Arguments *value){
 }
 
 void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
-    fprintf(stdout, "entered function\n");
-//    // Вказівник на IP заголовок
-//    struct ip* ipHeader = (struct ip*)(packet + 14);  // Ethernet заголовок має розмір 14 байт
-//    // Якщо це не IP-пакет, виходимо
-//    if (ipHeader->ip_p != IPPROTO_TCP) {
-//        fprintf(stdout, "not tcp ret\n");
-//        return;
-//    }
     //get packet type
     struct ether_header *ether_head = (struct ether_header *) packet;
     int etherType = ntohs(ether_head->ether_type);
-    if (etherType == 0x0800) { // IPv4
-        //get ip4 header
-        struct ip *ip_head = (struct ip *) (packet + sizeof(struct ether_header));
-        //get IO address from header
-        char src[INET_ADDRSTRLEN];
-        char dst[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(ip_head->ip_src), src, INET_ADDRSTRLEN);
-        inet_ntop(AF_INET, &(ip_head->ip_dst), dst, INET_ADDRSTRLEN);
-        std::cout << "src IP: " << src << std::endl;
-        std::cout << "dst IP: " << dst << std::endl;
-    }else{
+    //Мже не треба перевіряти на іпв4? може тільки перевірку на тцп залишити ??
+    if (etherType != 0x0800) { //if not  IPv4
+        return;
+    }
+    //get ip4 header
+    struct ip *ip_head = (struct ip *) (packet + sizeof(struct ether_header));
+    // Вказівник на IP заголовок
+    //struct ip* ipHeader = (struct ip*)(packet + 14);  // Ethernet заголовок має розмір 14 байт
+    // Якщо це не IP-пакет, виходимо
+    if (ip_head->ip_p != IPPROTO_TCP) {
+        fprintf(stdout, "not tcp ret\n");
         return;
     }
 
     // Вказівник на TCP заголовок (після IP заголовка)
-//    struct tcphdr* tcpHeader = (struct tcphdr*)(packet + 14 + ipHeader->ip_hl * 4);
+    struct tcphdr* tcp_head = (struct tcphdr*)(packet + sizeof(struct ether_header)  + ip_head->ip_hl * 4);
     // Виведення базової інформації про TCP пакет
-//    std::cout << "Source IP: " << inet_ntoa(ipHeader->ip_src) << "\n";
-//    std::cout << "Destination IP: " << inet_ntoa(ipHeader->ip_dst) << "\n";
-//    std::cout << "Source Port: " << ntohs(tcpHeader->th_sport) << "\n";
-//    std::cout << "Destination Port: " << ntohs(tcpHeader->th_dport) << "\n";
-//    std::cout << "-------------------------------------------\n";
+    std::cout << "Source IP: " << inet_ntoa(ip_head->ip_src) << "\n";
+    std::cout << "Destination IP: " << inet_ntoa(ip_head->ip_dst) << "\n";
+    std::cout << "Source Port: " << ntohs(tcp_head->th_sport) << "\n";
+    std::cout << "Destination Port: " << ntohs(tcp_head->th_dport) << "\n";
+    std::cout << "-------------------------------------------\n";
 }
+
+//std::string hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port) {
+//    return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
+//}
 
 
 int main(int argc, char *argv[]) {

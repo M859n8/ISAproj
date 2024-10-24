@@ -11,7 +11,7 @@ $(EXEC): $(SRCS)
 
 run:
 	make
-	./$(EXEC)  localhost:2055 output.pcap -a 5 -i 30
+	./$(EXEC)  localhost:2055 test1.pcap -a 5 -i 30
 
 clean:
 	rm -f $(EXEC)

@@ -20,5 +20,22 @@ typedef struct {
     int inact_timeout;
 } Arguments;
 
+struct flow {
+    // Struktura reprezentující tok
+    uint32_t src_ip;
+    uint32_t dst_ip;
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint8_t protocol;
+    uint32_t packets;
+    uint32_t bytes;
+    struct timeval start_time;
+    struct timeval last_time;
+};
+
+// Hashovací tabulka pro ukládání toků
+std::unordered_map<std::string, struct flow> flow_table;
+
+
 char *get_host_by_name(char *hostname);
 int input_parse(int argc, char *argv[], Arguments *value);
