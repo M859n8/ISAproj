@@ -34,6 +34,7 @@ struct Flow {
     struct timeval first_packet_time;
     struct timeval last_packet_time;
 
+    bool send;
 
 //    std::chrono::system_clock::time_point first_packet_time;
 //    std::chrono::system_clock::time_point last_packet_time;

@@ -68,7 +68,6 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
     //struct ip* ipHeader = (struct ip*)(packet + 14);  // Ethernet заголовок має розмір 14 байт
     // Якщо це не IP-пакет, виходимо
     if (ip_head->ip_p != IPPROTO_TCP) {
-        fprintf(stdout, "not tcp ret\n");
         return;
     }
 
@@ -93,13 +92,18 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
     // Створюємо ключ для хеш-таблиці
     std::string key = create_hash_key(src_ip, dst_ip, src_port, dst_port);
     // Якщо флоу вже є у таблиці, оновлюємо його
-    if (flow_table.find(key) != flow_table.end()) {
+    if ((flow_table.find(key) != flow_table.end()) && flow_table[key].send == false) {
         Flow& flow = flow_table[key];
+
+//        std::cout << "old flow" << amount << "\n";
+
         flow.packet_count += 1;
         flow.byte_count += bytes;
         flow.last_packet_time = time;
         //fprintf(stdout, "   update\n");
     } else {
+//        std::cout << "new flow" << amount << "\n";
+
         // Інакше створюємо новий флоу
         Flow new_flow = create_flow(src_ip, dst_ip, src_port, dst_port, bytes, time);
         flow_table[key] = new_flow;
@@ -119,16 +123,22 @@ void check_timers(struct timeval current_time) {
 
     for (auto itr = flow_table.begin(); itr != flow_table.end();  ) {
         Flow& flow = itr->second; // Доступ до значення (Flow)
+        if(flow.send == true ){
+            ++itr; // Переходимо до наступного елемента
+            continue;
+        }
 
         long active_diff = time_diff_in_seconds(flow.first_packet_time, current_time);
         long inactive_diff = time_diff_in_seconds(flow.last_packet_time, current_time);
 
         if (active_diff > input_val.act_timeout || inactive_diff > input_val.inact_timeout) {
             // Тут має бути експорт і видалення потоку
-            send_to_collector(input_val.addr, input_val.port, flow.dst_ip.data(), sizeof(flow));
-
-            itr = flow_table.erase(itr); // Видаляємо потік і отримуємо новий ітератор
+//            send_to_collector(input_val.addr, input_val.port, flow.dst_ip.data(), sizeof(flow));
+//
+//            itr = flow_table.erase(itr); // Видаляємо потік і отримуємо новий ітератор
 //            fprintf(stdout, "   erase\n");
+            flow.send = true;
+
             amount++; //test only
 
         } else {
@@ -153,6 +163,7 @@ Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_p
     new_flow.byte_count = bytes;
     new_flow.first_packet_time = time;
     new_flow.last_packet_time = time;
+    new_flow.send = false;
     return new_flow;
 
 }

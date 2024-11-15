@@ -11,7 +11,7 @@ $(EXEC): $(SRCS)
 
 run:
 	make
-	./$(EXEC)  localhost:2055 tcp-fin.pcap -a 50 -i 5
+	./$(EXEC)  localhost:2055 test/tcp-fin.pcap -a 50 -i 5
 
 save:
 	make
