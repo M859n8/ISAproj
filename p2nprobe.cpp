@@ -1,5 +1,11 @@
 #include "p2nprobe.h"
 
+// Визначення змінних
+std::unordered_map<std::string, struct Flow> flow_table;
+Arguments input_val;
+//test only
+int amount = 0;
+
 //copied from my ipk project
 //function that calculate ip address by name
 char *get_host_by_name(char *hostname) {
@@ -148,6 +154,30 @@ void check_timers(struct timeval current_time) {
     }
 }
 
+// Вибір флоу з send == true і надсилання їх на колектор
+void prepare_to_send() {
+    std::vector<Flow> flows_to_send;
+    for (auto itr = flow_table.begin(); itr != flow_table.end();) {
+        if (itr->second.send) {
+            flows_to_send.push_back(itr->second);
+            itr = flow_table.erase(itr); // Видалення флоу після вибору
+        } else {
+            ++itr;
+        }
+
+        // Якщо зібрано 30 флоу, відправляємо їх
+        if (flows_to_send.size() == 30) {
+            send_to_collector(input_val.addr, input_val.port, flows_to_send);
+            flows_to_send.clear();
+        }
+    }
+
+    // Надсилаємо залишок, якщо є
+    if (!flows_to_send.empty()) {
+        send_to_collector(input_val.addr, input_val.port, flows_to_send);
+    }
+}
+
 
 std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port) {
     return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
@@ -223,6 +253,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Error reading packets: " << pcap_geterr(pcap) << "\n";
         return 1;
     }
+    prepare_to_send();
 
     // Otevření PCAP souboru a inicializace socketu pro komunikaci s kolektorem
 

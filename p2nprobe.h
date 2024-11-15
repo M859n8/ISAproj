@@ -1,3 +1,6 @@
+#ifndef P2NPROBE_H
+#define P2NPROBE_H
+
 #include <pcap.h>
 #include <iostream>
 #include <netinet/ether.h>
@@ -7,9 +10,12 @@
 #include <unordered_map>
 
 #include <stdio.h>
-#include <cstring>
+#include <cstring> // memset
+#include <sys/socket.h> // socket, sendto
+#include <unistd.h> // close
+#include <vector>
 #include <sys/time.h>
-#include "sendUDP.h"
+//#include "sendUDP.h"
 
 #define PCAP_ERRBUF_SIZE 256
 //#define INET_ADDRSTRLEN
@@ -44,11 +50,11 @@ struct Flow {
 
 
 // Hashovací tabulka pro ukládání toků
-std::unordered_map<std::string, struct Flow> flow_table;
-Arguments input_val;
+extern std::unordered_map<std::string, struct Flow> flow_table;
+extern Arguments input_val;
 
 //test only
-int amount = 0;
+extern int amount ;
 
 char *get_host_by_name(char *hostname);
 int input_parse(int argc, char *argv[], Arguments *value);
@@ -57,3 +63,8 @@ std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip
 void print_flows();
 void check_timers(struct timeval current_time);
 long time_diff_in_seconds(const struct timeval& start, const struct timeval& end);
+
+void send_to_collector(const std::string& collector_ip, int collector_port, const std::vector<Flow>& flows);
+int prepare_flow_data(const Flow& flow, char* buffer) ;
+
+#endif //P2NPROBE_H
