@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -std=c++11 -Wall
-SRCS = p2nprobe.cpp
+SRCS = p2nprobe.cpp sendUDP.cpp
 EXEC = p2nprobe
 
 all: $(EXEC)
@@ -11,7 +11,7 @@ $(EXEC): $(SRCS)
 
 run:
 	make
-	./$(EXEC)  localhost:2055 test1.pcap -a 5 -i 30
+	./$(EXEC)  localhost:2055 tcp-fin.pcap -a 50 -i 5
 
 save:
 	make

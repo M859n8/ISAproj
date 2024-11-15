@@ -82,6 +82,7 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
 //    std::cout << "Destination Port: " << ntohs(tcp_head->th_dport) << "\n";
 //
     struct timeval time = pcap_head->ts;
+    check_timers(time);
     uint16_t src_port = ntohs(tcp_head->source);
     uint16_t dst_port = ntohs(tcp_head->dest);
 
@@ -103,10 +104,40 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
         Flow new_flow = create_flow(src_ip, dst_ip, src_port, dst_port, bytes, time);
         flow_table[key] = new_flow;
         //fprintf(stdout, "   create\n");
-
     }
-
 }
+
+// Функція для обчислення різниці між timeval у секундах
+long time_diff_in_seconds(const struct timeval& start, const struct timeval& end) {
+//    fprintf(stdout, "   entered time diff func\n");
+
+    return (end.tv_sec - start.tv_sec);
+}
+
+void check_timers(struct timeval current_time) {
+//    fprintf(stdout, "entered check timer func\n");
+
+    for (auto itr = flow_table.begin(); itr != flow_table.end();  ) {
+        Flow& flow = itr->second; // Доступ до значення (Flow)
+
+        long active_diff = time_diff_in_seconds(flow.first_packet_time, current_time);
+        long inactive_diff = time_diff_in_seconds(flow.last_packet_time, current_time);
+
+        if (active_diff > input_val.act_timeout || inactive_diff > input_val.inact_timeout) {
+            // Тут має бути експорт і видалення потоку
+            send_to_collector(input_val.addr, input_val.port, flow.dst_ip.data(), sizeof(flow));
+
+            itr = flow_table.erase(itr); // Видаляємо потік і отримуємо новий ітератор
+//            fprintf(stdout, "   erase\n");
+            amount++; //test only
+
+        } else {
+            ++itr; // Переходимо до наступного елемента
+
+        }
+    }
+}
+
 
 std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port) {
     return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
@@ -128,24 +159,27 @@ Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_p
 
 // Функція для виведення флоу на stdout
 void print_flows() {
-    fprintf(stdout, "entered print func\n");
+//    fprintf(stdout, "entered print func\n");
     for (const auto& entry : flow_table) {
-        const Flow& flow = entry.second;
-        std::cout << "Flow: " << flow.src_ip << ":" << flow.src_port << " -> "
-                  << flow.dst_ip << ":" << flow.dst_port << "\n"
-                  << "Packets ount: " << flow.packet_count << ", Bytes: " << flow.byte_count << "\n";
-        time_t packet_time_sec = flow.first_packet_time.tv_sec; // секунди
-        suseconds_t packet_time_usec = flow.first_packet_time.tv_usec; // мікросекунди
-
-        // Конвертуємо час у формат, зручний для читання
-        struct tm *tm_info = localtime(&packet_time_sec);
-        char time_buffer[64];
-        strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
-
-        std::cout << "Час пакету: " << time_buffer << "." << packet_time_usec << std::endl;
-
-        std::cout << "-------------------------------------------\n";
+        amount++;
+//        const Flow& flow = entry.second;
+//        std::cout << "Flow: " << flow.src_ip << ":" << flow.src_port << " -> "
+//                  << flow.dst_ip << ":" << flow.dst_port << "\n"
+//                  << "Packets ount: " << flow.packet_count << ", Bytes: " << flow.byte_count << "\n";
+//        time_t packet_time_sec = flow.first_packet_time.tv_sec; // секунди
+//        suseconds_t packet_time_usec = flow.first_packet_time.tv_usec; // мікросекунди
+//
+//        // Конвертуємо час у формат, зручний для читання
+//        struct tm *tm_info = localtime(&packet_time_sec);
+//        char time_buffer[64];
+//        strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+//
+//        std::cout << "Час пакету: " << time_buffer << "." << packet_time_usec << std::endl;
+//
+//        std::cout << "-------------------------------------------\n";
     }
+    fprintf(stdout, "Amount of flows : %d\n", amount);
+
 
 }
 
@@ -154,7 +188,7 @@ int main(int argc, char *argv[]) {
     pcap_t *pcap;
     char errbuf[PCAP_ERRBUF_SIZE];
 
-    Arguments input_val;
+//    Arguments input_val;
     input_val.addr = nullptr;
     input_val.port = 0;
     input_val.file_path = nullptr;

@@ -1,0 +1,5 @@
+https://www.geeksforgeeks.org/unordered_map-in-cpp-stl/
+
+
+команди
+sudo tcpdump -i lo udp port 2055
