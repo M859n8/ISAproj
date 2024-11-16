@@ -5,6 +5,7 @@ std::unordered_map<std::string, struct Flow> flow_table;
 Arguments input_val;
 //test only
 int amount = 0;
+int packets = 0;
 
 //copied from my ipk project
 //function that calculate ip address by name
@@ -66,6 +67,7 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
     int etherType = ntohs(ether_head->ether_type);
     //Мже не треба перевіряти на іпв4? може тільки перевірку на тцп залишити ??
     if (etherType != 0x0800) { //if not  IPv4
+
         return;
     }
     //get ip4 header
@@ -76,53 +78,50 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
     if (ip_head->ip_p != IPPROTO_TCP) {
         return;
     }
-
     // Вказівник на TCP заголовок (після IP заголовка)
     struct tcphdr* tcp_head = (struct tcphdr*)(packet + sizeof(struct ether_header)  + ip_head->ip_hl * 4);
 
-//    // Виведення базової інформації про TCP пакет
-//    std::cout << "Source IP: " << inet_ntoa(ip_head->ip_src) << "\n";
-//    std::cout << "Destination IP: " << inet_ntoa(ip_head->ip_dst) << "\n";
-//    std::cout << "Source Port: " << ntohs(tcp_head->th_sport) << "\n";
-//    std::cout << "Destination Port: " << ntohs(tcp_head->th_dport) << "\n";
-//
     struct timeval time = pcap_head->ts;
     check_timers(time);
+    prepare_to_send();
+
     uint16_t src_port = ntohs(tcp_head->source);
     uint16_t dst_port = ntohs(tcp_head->dest);
-
     // Отримання IP-адрес
     std::string src_ip = inet_ntoa(ip_head->ip_src);
     std::string dst_ip = inet_ntoa(ip_head->ip_dst);
     int bytes = pcap_head->len;
     // Створюємо ключ для хеш-таблиці
     std::string key = create_hash_key(src_ip, dst_ip, src_port, dst_port);
+
     // Якщо флоу вже є у таблиці, оновлюємо його
     if ((flow_table.find(key) != flow_table.end()) && flow_table[key].send == false) {
+        packets++; //test only
+
         Flow& flow = flow_table[key];
-
-//        std::cout << "old flow" << amount << "\n";
-
         flow.packet_count += 1;
         flow.byte_count += bytes;
         flow.last_packet_time = time;
-        //fprintf(stdout, "   update\n");
+
+//        std::cout << "upd flow" <<  flow_table[key].packet_count << " packet numb " << packets << "\n";
+
     } else {
-//        std::cout << "new flow" << amount << "\n";
+        packets++;//test only
 
         // Інакше створюємо новий флоу
         Flow new_flow = create_flow(src_ip, dst_ip, src_port, dst_port, bytes, time);
         flow_table[key] = new_flow;
-        //fprintf(stdout, "   create\n");
+
+//        std::cout << "  new flow" << amount << " packet numb " << packets << "\n";
+
     }
 }
 
 // Функція для обчислення різниці між timeval у секундах
-long time_diff_in_seconds(const struct timeval& start, const struct timeval& end) {
+//long time_diff_in_seconds(const struct timeval& start, const struct timeval& end) {
 //    fprintf(stdout, "   entered time diff func\n");
-
-    return (end.tv_sec - start.tv_sec);
-}
+//    return (end.tv_sec - start.tv_sec);
+//}
 
 void check_timers(struct timeval current_time) {
 //    fprintf(stdout, "entered check timer func\n");
@@ -134,18 +133,15 @@ void check_timers(struct timeval current_time) {
             continue;
         }
 
-        long active_diff = time_diff_in_seconds(flow.first_packet_time, current_time);
-        long inactive_diff = time_diff_in_seconds(flow.last_packet_time, current_time);
+//        long active_diff = time_diff_in_seconds(flow.first_packet_time, current_time);
+//        long inactive_diff = time_diff_in_seconds(flow.last_packet_time, current_time);
+        long active_diff = current_time.tv_sec - flow.first_packet_time.tv_sec;
+        long inactive_diff = current_time.tv_sec - flow.first_packet_time.tv_sec;
 
         if (active_diff > input_val.act_timeout || inactive_diff > input_val.inact_timeout) {
             // Тут має бути експорт і видалення потоку
-//            send_to_collector(input_val.addr, input_val.port, flow.dst_ip.data(), sizeof(flow));
-//
 //            itr = flow_table.erase(itr); // Видаляємо потік і отримуємо новий ітератор
-//            fprintf(stdout, "   erase\n");
             flow.send = true;
-
-            amount++; //test only
 
         } else {
             ++itr; // Переходимо до наступного елемента
@@ -156,52 +152,64 @@ void check_timers(struct timeval current_time) {
 
 // Вибір флоу з send == true і надсилання їх на колектор
 void prepare_to_send() {
-    std::cout << "entered prepare to send \n " ;
+//    std::cout << "entered prepare to send \n " ;
     std::vector<Flow> flows_to_send;
+    //test only
+//    std::cout << "flows table size :  " << flow_table.size()  << " \n " ;
+
     for (auto itr = flow_table.begin(); itr != flow_table.end();) {
-//        if (itr->second.send) {
+        if (itr->second.send) {
             flows_to_send.push_back(itr->second);
-//            itr = flow_table.erase(itr); // Видалення флоу після вибору
-//        } else {
+            itr = flow_table.erase(itr); // Видалення флоу після вибору
+        } else {
             ++itr;
-//        }
+        }
 
 //        std::cout << "  flows count  " << flows_to_send.size() << "\n";
 
         // Якщо зібрано 30 флоу, відправляємо їх
-        if (flows_to_send.size() == 30) {
-            std::cout << "reach count 30 \n " ;
-
-            send_to_collector(input_val.addr, input_val.port, flows_to_send);
-            flows_to_send.clear();
-        }
+//        if (flows_to_send.size() == 30) {
+//            std::cout << "reach count 30 \n " ;
+//
+//            send_to_collector(input_val.addr, input_val.port, flows_to_send);
+//            flows_to_send.clear();
+//        }
     }
 //    std::cout << "send remaining flows \n " ;
 //
 //    // Надсилаємо залишок, якщо є
     if (!flows_to_send.empty()) {
-        std::cout << "sending ...  \n " ;
+//        std::cout << "Sending ... " << amount << " \n " ;
+//        std::cout << "flows to sent size :  " << flows_to_send.size() << " \n " ;
 
         send_to_collector(input_val.addr, input_val.port, flows_to_send);
     }
 }
 
 void send_remains(){
-    for (auto itr = flow_table.begin(); itr != flow_table.end();  ) {
-        Flow& flow = itr->second; // Доступ до значення (Flow)
+    std::vector<Flow> flows_to_send;
 
-        flow.send = true;
-        ++itr; // Переходимо до наступного елемента
+    for (auto itr = flow_table.begin(); itr != flow_table.end();  ) {
+        flows_to_send.push_back(itr->second);
+        itr = flow_table.erase(itr);
+    }
+    if (!flows_to_send.empty()) {
+//        std::cout << "Sending ... " << amount << " \n " ;
+//        std::cout << "flows to sent size :  " << flows_to_send.size() << " \n " ;
+
+        send_to_collector(input_val.addr, input_val.port, flows_to_send);
     }
 
 }
-
 
 std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port) {
     return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
 }
 
 Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port, int dst_port, int bytes,  struct timeval time){
+
+    amount++;//test only
+
     Flow new_flow;
     new_flow.src_ip = src_ip;
     new_flow.dst_ip = dst_ip;
@@ -219,25 +227,30 @@ Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_p
 // Функція для виведення флоу на stdout
 void print_flows() {
 //    fprintf(stdout, "entered print func\n");
+    int remains = 0;
     for (const auto& entry : flow_table) {
-        amount++;
-//        const Flow& flow = entry.second;
-//        std::cout << "Flow: " << flow.src_ip << ":" << flow.src_port << " -> "
-//                  << flow.dst_ip << ":" << flow.dst_port << "\n"
-//                  << "Packets ount: " << flow.packet_count << ", Bytes: " << flow.byte_count << "\n";
-//        time_t packet_time_sec = flow.first_packet_time.tv_sec; // секунди
-//        suseconds_t packet_time_usec = flow.first_packet_time.tv_usec; // мікросекунди
-//
-//        // Конвертуємо час у формат, зручний для читання
-//        struct tm *tm_info = localtime(&packet_time_sec);
-//        char time_buffer[64];
-//        strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
-//
-//        std::cout << "Час пакету: " << time_buffer << "." << packet_time_usec << std::endl;
-//
-//        std::cout << "-------------------------------------------\n";
+
+        const Flow& flow = entry.second;
+        std::cout << "Flow: " << flow.src_ip << ":" << flow.src_port << " -> "
+                  << flow.dst_ip << ":" << flow.dst_port << "\n"
+                  << "Packets count: " << flow.packet_count << ", Bytes: " << flow.byte_count << "\n";
+        time_t packet_time_sec = flow.first_packet_time.tv_sec; // секунди
+        suseconds_t packet_time_usec = flow.first_packet_time.tv_usec; // мікросекунди
+
+        // Конвертуємо час у формат, зручний для читання
+        struct tm *tm_info = localtime(&packet_time_sec);
+        char time_buffer[64];
+        strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+        std::cout << "Час пакету: " << time_buffer << "." << packet_time_usec << std::endl;
+
+        std::cout << "-------------------------------------------\n";
+    remains++;
     }
     fprintf(stdout, "Amount of flows : %d\n", amount);
+    fprintf(stdout, "Remains of flows : %d\n", remains);
+    fprintf(stdout, "Packets : %d\n", packets);
+
 
 
 }
@@ -271,8 +284,8 @@ int main(int argc, char *argv[]) {
         std::cerr << "Error reading packets: " << pcap_geterr(pcap) << "\n";
         return 1;
     }
-    prepare_to_send();
-
+//    prepare_to_send();
+    send_remains();
     // Otevření PCAP souboru a inicializace socketu pro komunikaci s kolektorem
 
     // Nastavení časovačů pro aktivní a neaktivní timeouty
@@ -283,15 +296,6 @@ int main(int argc, char *argv[]) {
 
     // Uvolnění zdrojů a ukončení programu
 
-
-
-
-    //для перевірки змінних
-    std::cout << "Host: " << input_val.addr << "\n";
-    std::cout << "Port: " << input_val.port << "\n";
-    std::cout << "PCAP file: " << input_val.file_path << "\n";
-    std::cout << "Active timeout: " << input_val.act_timeout << " seconds\n";
-    std::cout << "Inactive timeout: " << input_val.inact_timeout << " seconds\n";
 
     print_flows();
     // Zavření souboru

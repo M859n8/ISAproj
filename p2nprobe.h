@@ -63,6 +63,8 @@ std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip
 void print_flows();
 void check_timers(struct timeval current_time);
 long time_diff_in_seconds(const struct timeval& start, const struct timeval& end);
+void prepare_to_send();
+void send_remains();
 
 void send_to_collector(const std::string& collector_ip, int collector_port, const std::vector<Flow>& flows);
 int prepare_flow_data(const Flow& flow, char* buffer) ;

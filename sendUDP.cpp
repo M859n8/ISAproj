@@ -4,7 +4,8 @@
 const int MAX_FLOWS_PER_PACKET = 30; // Максимальна кількість флоу в пакеті
 const int HEADER_SIZE = 24;
 const int RECORD_SIZE = 48;
-
+//test only
+int amount1 = 0;
 // Підготовка даних для одного флоу
 int prepare_flow_data(const Flow& flow, char* buffer) {
     // Підготовка даних для передачі флоу
@@ -66,7 +67,8 @@ void prepare_body(const Flow& flow, char *buffer){
 
     //ДОПОВНИТИ ТЕ ЩО ЛИШИЛОСЬ 0 ?? ЧИ МОЖЕ ТАЙП ОФ СЕРВІС НЕ НУЛЬ ?? МАСКА 32?? (зі стріму)
 
-
+//test only
+amount1++;
 }
 
 void send_to_collector(const std::string& collector_ip, int port, const std::vector<Flow>& flows) {
@@ -90,15 +92,6 @@ void send_to_collector(const std::string& collector_ip, int port, const std::vec
         return;
     }
 
-//    for (const auto& flow : flows) {
-//        char buffer[1024];
-//        int length = prepare_flow_data(flow, buffer); // Підготовка даних для відправлення
-//        if(sendto(sock, buffer, length, 0, (struct sockaddr*)&collector_addr, sizeof(collector_addr)) <0 ){
-//            perror("Failed to send data");
-//
-//        }
-//    }
-
     // Розбиваємо потоки на пакети
     int flow_count = flows.size();
     for (int i = 0; i < flow_count; i += MAX_FLOWS_PER_PACKET) {
@@ -118,6 +111,8 @@ void send_to_collector(const std::string& collector_ip, int port, const std::vec
         }
         // Відправляємо пакет
         sendto(sock, buffer, HEADER_SIZE + RECORD_SIZE * current_count, 0, (struct sockaddr *) &collector_addr,sizeof(collector_addr));
+        std::cout << "sent packets number " << amount1 << "\n " ;
+
     }
     close(sock);
 }
