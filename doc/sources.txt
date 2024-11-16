@@ -3,3 +3,6 @@ https://www.geeksforgeeks.org/unordered_map-in-cpp-stl/
 
 команди
 sudo tcpdump -i lo udp port 2055
+
+to save and check in wireshark
+ sudo tcpdump -i lo udp port 2055 -w test2.pcap

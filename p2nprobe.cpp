@@ -156,26 +156,44 @@ void check_timers(struct timeval current_time) {
 
 // Вибір флоу з send == true і надсилання їх на колектор
 void prepare_to_send() {
+    std::cout << "entered prepare to send \n " ;
     std::vector<Flow> flows_to_send;
     for (auto itr = flow_table.begin(); itr != flow_table.end();) {
-        if (itr->second.send) {
+//        if (itr->second.send) {
             flows_to_send.push_back(itr->second);
-            itr = flow_table.erase(itr); // Видалення флоу після вибору
-        } else {
+//            itr = flow_table.erase(itr); // Видалення флоу після вибору
+//        } else {
             ++itr;
-        }
+//        }
+
+//        std::cout << "  flows count  " << flows_to_send.size() << "\n";
 
         // Якщо зібрано 30 флоу, відправляємо їх
         if (flows_to_send.size() == 30) {
+            std::cout << "reach count 30 \n " ;
+
             send_to_collector(input_val.addr, input_val.port, flows_to_send);
             flows_to_send.clear();
         }
     }
-
-    // Надсилаємо залишок, якщо є
+//    std::cout << "send remaining flows \n " ;
+//
+//    // Надсилаємо залишок, якщо є
     if (!flows_to_send.empty()) {
+        std::cout << "sending ...  \n " ;
+
         send_to_collector(input_val.addr, input_val.port, flows_to_send);
     }
+}
+
+void send_remains(){
+    for (auto itr = flow_table.begin(); itr != flow_table.end();  ) {
+        Flow& flow = itr->second; // Доступ до значення (Flow)
+
+        flow.send = true;
+        ++itr; // Переходимо до наступного елемента
+    }
+
 }
 
 
