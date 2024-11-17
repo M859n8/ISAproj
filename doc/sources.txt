@@ -6,3 +6,17 @@ sudo tcpdump -i lo udp port 2055
 
 to save and check in wireshark
  sudo tcpdump -i lo udp port 2055 -w test2.pcap
+
+ sudo softflowd -r test/tcp-fin.pcap -n localhost:2055 -
+ v 5 -d "tcp" -t general=5s -t maxlife=50s
+
+
+ зберегти софтфолд в пкап
+ sudo softflowd -r test/tcp-fin.pcap -n localhost:2055 -v 5 -d > netflow.pcap
+
+ other testing tool
+  nfcapd -l ./data -p 2055 -b localhost
+read data
+ nfdump -r ./data/nfcapd.202411171520
+
+ tests from discord : python3 test.py -c --softflowd -t (13/35)

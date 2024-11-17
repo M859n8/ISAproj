@@ -72,7 +72,7 @@ amount1++;
 }
 
 void send_to_collector(const std::string& collector_ip, int port, const std::vector<Flow>& flows) {
-    std::cout << "entered send to collector\n " ;
+//    std::cout << "entered send to collector\n " ;
 
     // Створення UDP сокету
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -111,7 +111,7 @@ void send_to_collector(const std::string& collector_ip, int port, const std::vec
         }
         // Відправляємо пакет
         sendto(sock, buffer, HEADER_SIZE + RECORD_SIZE * current_count, 0, (struct sockaddr *) &collector_addr,sizeof(collector_addr));
-        std::cout << "sent packets number " << amount1 << "\n " ;
+//        std::cout << "sent packets number " << amount1 << "\n " ;
 
     }
     close(sock);

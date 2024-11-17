@@ -6,6 +6,7 @@ Arguments input_val;
 //test only
 int amount = 0;
 int packets = 0;
+int bytes_count = 0;
 
 //copied from my ipk project
 //function that calculate ip address by name
@@ -95,13 +96,18 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
     std::string key = create_hash_key(src_ip, dst_ip, src_port, dst_port);
 
     // Якщо флоу вже є у таблиці, оновлюємо його
-    if ((flow_table.find(key) != flow_table.end()) && flow_table[key].send == false) {
+    if ((flow_table.find(key) != flow_table.end()) ) {
+//if ((flow_table.find(key) != flow_table.end()) && flow_table[key].send == false ) {
+
         packets++; //test only
+
 
         Flow& flow = flow_table[key];
         flow.packet_count += 1;
         flow.byte_count += bytes;
         flow.last_packet_time = time;
+
+        bytes_count +=bytes; //test only
 
 //        std::cout << "upd flow" <<  flow_table[key].packet_count << " packet numb " << packets << "\n";
 
@@ -115,12 +121,29 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
 //        std::cout << "  new flow" << amount << " packet numb " << packets << "\n";
 
     }
+
+
 }
 
 // Функція для обчислення різниці між timeval у секундах
 //long time_diff_in_seconds(const struct timeval& start, const struct timeval& end) {
-//    fprintf(stdout, "   entered time diff func\n");
-//    return (end.tv_sec - start.tv_sec);
+//    // Обчислення різниці в секундах
+//    long sec_diff = end.tv_sec - start.tv_sec;
+//
+//    // Якщо секунди однакові, обчислюємо різницю в мікросекундах
+//    if (sec_diff == 0) {
+//        long usec_diff = end.tv_usec - start.tv_usec;
+//        if (usec_diff > 0) {
+////            fprintf(stdout, "Difference in microseconds: %ld µs\n", usec_diff);
+//            return 0; // Різниця в секундах нульова, тільки мікросекунди
+//        } else {
+////            fprintf(stdout, "End time is earlier in microseconds\n");
+//            return -1; // Сигналізуємо, що `end` раніше `start`
+//        }
+//    }
+//
+//    // Якщо секунди різні, обчислюємо результат як різницю секунд
+//    return sec_diff;
 //}
 
 void check_timers(struct timeval current_time) {
@@ -135,18 +158,26 @@ void check_timers(struct timeval current_time) {
 
 //        long active_diff = time_diff_in_seconds(flow.first_packet_time, current_time);
 //        long inactive_diff = time_diff_in_seconds(flow.last_packet_time, current_time);
-        long active_diff = current_time.tv_sec - flow.first_packet_time.tv_sec;
-        long inactive_diff = current_time.tv_sec - flow.first_packet_time.tv_sec;
+        long active_diff_usec = (current_time.tv_sec - flow.first_packet_time.tv_sec) * 1000000L
+                                + (current_time.tv_usec - flow.first_packet_time.tv_usec);
 
-        if (active_diff > input_val.act_timeout || inactive_diff > input_val.inact_timeout) {
-            // Тут має бути експорт і видалення потоку
-//            itr = flow_table.erase(itr); // Видаляємо потік і отримуємо новий ітератор
+        long inactive_diff_usec = (current_time.tv_sec - flow.last_packet_time.tv_sec) * 1000000L
+                                  + (current_time.tv_usec - flow.last_packet_time.tv_usec);
+
+// Перетворюємо таймаути з секунд у мікросекунди
+        long act_timeout_usec = input_val.act_timeout * 1000000L;
+        long inact_timeout_usec = input_val.inact_timeout * 1000000L;
+
+// Перевірка таймаутів
+        if (active_diff_usec > act_timeout_usec || inactive_diff_usec > inact_timeout_usec) {
+            // Експорт і видалення потоку
             flow.send = true;
+        }
 
-        } else {
+//        else {
             ++itr; // Переходимо до наступного елемента
 
-        }
+//        }
     }
 }
 
@@ -220,6 +251,10 @@ Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_p
     new_flow.first_packet_time = time;
     new_flow.last_packet_time = time;
     new_flow.send = false;
+
+    bytes_count +=bytes; //test only
+
+
     return new_flow;
 
 }
@@ -249,7 +284,7 @@ void print_flows() {
     }
     fprintf(stdout, "Amount of flows : %d\n", amount);
     fprintf(stdout, "Remains of flows : %d\n", remains);
-    fprintf(stdout, "Packets : %d\n", packets);
+    fprintf(stdout, "Packets : %d and bytes count %d\n", packets, bytes_count);
 
 
 
