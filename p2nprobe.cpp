@@ -1,8 +1,12 @@
+//Author : Maryna Kucher , xkuche01
+
 #include "p2nprobe.h"
 
 // Визначення змінних
 std::unordered_map<std::string, struct Flow> flow_table;
 Arguments input_val;
+std::vector<Flow> flows_to_send;
+struct timeval boot_time;
 //test only
 int amount = 0;
 int packets = 0;
@@ -79,19 +83,21 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
     if (ip_head->ip_p != IPPROTO_TCP) {
         return;
     }
+    uint8_t tos = ip_head->ip_tos; // Získání TOS z hlavičky IP
     // Вказівник на TCP заголовок (після IP заголовка)
     struct tcphdr* tcp_head = (struct tcphdr*)(packet + sizeof(struct ether_header)  + ip_head->ip_hl * 4);
 
     struct timeval time = pcap_head->ts;
     check_timers(time);
-    prepare_to_send();
+    //prepare_to_send();
 
     uint16_t src_port = ntohs(tcp_head->source);
     uint16_t dst_port = ntohs(tcp_head->dest);
     // Отримання IP-адрес
     std::string src_ip = inet_ntoa(ip_head->ip_src);
     std::string dst_ip = inet_ntoa(ip_head->ip_dst);
-    int bytes = pcap_head->len;
+    int bytes = pcap_head->len - 14; // без айпі заголовку
+    uint8_t tcp_flags = tcp_head->th_flags;
     // Створюємо ключ для хеш-таблиці
     std::string key = create_hash_key(src_ip, dst_ip, src_port, dst_port);
 
@@ -106,6 +112,8 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
         flow.packet_count += 1;
         flow.byte_count += bytes;
         flow.last_packet_time = time;
+        flow.tos = tos;
+        flow.tcp_flags = tcp_flags;
 
         bytes_count +=bytes; //test only
 
@@ -115,7 +123,7 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
         packets++;//test only
 
         // Інакше створюємо новий флоу
-        Flow new_flow = create_flow(src_ip, dst_ip, src_port, dst_port, bytes, time);
+        Flow new_flow = create_flow(src_ip, dst_ip, src_port, dst_port, bytes, time, tos, tcp_flags);
         flow_table[key] = new_flow;
 
 //        std::cout << "  new flow" << amount << " packet numb " << packets << "\n";
@@ -171,20 +179,21 @@ void check_timers(struct timeval current_time) {
 // Перевірка таймаутів
         if (active_diff_usec > act_timeout_usec || inactive_diff_usec > inact_timeout_usec) {
             // Експорт і видалення потоку
-            flow.send = true;
+            flows_to_send.push_back(itr->second);
+            itr = flow_table.erase(itr); // Видалення флоу після вибору
+            flow.send = true; //maybe do not nedd this now
         }
-
-//        else {
+        else {
             ++itr; // Переходимо до наступного елемента
 
-//        }
+        }
     }
 }
 
 // Вибір флоу з send == true і надсилання їх на колектор
 void prepare_to_send() {
 //    std::cout << "entered prepare to send \n " ;
-    std::vector<Flow> flows_to_send;
+//    std::vector<Flow> flows_to_send;
     //test only
 //    std::cout << "flows table size :  " << flow_table.size()  << " \n " ;
 
@@ -218,7 +227,7 @@ void prepare_to_send() {
 }
 
 void send_remains(){
-    std::vector<Flow> flows_to_send;
+//    std::vector<Flow> flows_to_send;
 
     for (auto itr = flow_table.begin(); itr != flow_table.end();  ) {
         flows_to_send.push_back(itr->second);
@@ -237,7 +246,8 @@ std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip
     return src_ip + ":" + std::to_string(src_port) + "to" + dst_ip + ":" + std::to_string(dst_port);
 }
 
-Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port, int dst_port, int bytes,  struct timeval time){
+Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port,
+                 int dst_port, int bytes,  struct timeval time, uint8_t tos, uint8_t tcp_flags){
 
     amount++;//test only
 
@@ -250,6 +260,9 @@ Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_p
     new_flow.byte_count = bytes;
     new_flow.first_packet_time = time;
     new_flow.last_packet_time = time;
+    new_flow.tos = tos;
+    new_flow.tcp_flags = tcp_flags;
+
     new_flow.send = false;
 
     bytes_count +=bytes; //test only
@@ -294,6 +307,8 @@ void print_flows() {
 int main(int argc, char *argv[]) {
     pcap_t *pcap;
     char errbuf[PCAP_ERRBUF_SIZE];
+
+    gettimeofday(&boot_time, NULL);
 
 //    Arguments input_val;
     input_val.addr = nullptr;

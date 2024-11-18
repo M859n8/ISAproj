@@ -1,3 +1,5 @@
+//Author : Maryna Kucher , xkuche01
+
 #ifndef P2NPROBE_H
 #define P2NPROBE_H
 
@@ -33,13 +35,16 @@ struct Flow {
     // Struktura reprezentující tok
     std::string src_ip; //char* ??
     std::string dst_ip;
-    int src_port;
-    int dst_port;
-    int packet_count;
-    int byte_count;
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t packet_count;
+    uint32_t byte_count;
     struct timeval first_packet_time;
     struct timeval last_packet_time;
 
+
+    uint8_t tcp_flags;  // TCP flags (např. SYN, ACK, FIN)
+    uint8_t tos;        // Type of Service
     bool send;
 
 //    std::chrono::system_clock::time_point first_packet_time;
@@ -52,13 +57,16 @@ struct Flow {
 // Hashovací tabulka pro ukládání toků
 extern std::unordered_map<std::string, struct Flow> flow_table;
 extern Arguments input_val;
+extern std::vector<Flow> flows_to_send;
+extern struct timeval boot_time;
 
 //test only
 extern int amount ;
 
 char *get_host_by_name(char *hostname);
 int input_parse(int argc, char *argv[], Arguments *value);
-Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port, int dst_port, int bytes,  struct timeval packet_time);
+Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port,
+                 int dst_port, int bytes,  struct timeval time, uint8_t tos, uint8_t tcp_flags);
 std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port);
 void print_flows();
 void check_timers(struct timeval current_time);

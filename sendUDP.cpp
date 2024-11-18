@@ -1,4 +1,4 @@
-//#include "sendUDP.h"
+//Author : Maryna Kucher , xkuche01
 #include "p2nprobe.h"
 
 const int MAX_FLOWS_PER_PACKET = 30; // Максимальна кількість флоу в пакеті
@@ -19,9 +19,13 @@ void prepare_header(int amount_of_flows, char* buffer){
     uint16_t version = htons(5);
     uint16_t count = htons(amount_of_flows);
     //хіба там не інший час ????????? час старту програми(стрім)? час пакету(гітхаб) ?
-    uint32_t sys_uptime = htonl(0); // Заглушка
-    uint32_t unix_secs = htonl(time(nullptr)); // Поточний час
-    uint32_t unix_nsecs = htonl(0); // Заглушка
+    struct timeval current_time;
+    gettimeofday(&current_time, NULL);
+    uint32_t sys_uptime = current_time.tv_usec - boot_time.tv_usec; // Заглушка
+    std::cout << "Boot time : " << amount1 << "\n " ;
+
+    uint32_t unix_secs = htonl(current_time.tv_sec); // Поточний час
+    uint32_t unix_nsecs = htonl(current_time.tv_usec * 1000); // Заглушка
     //хіба тут не має бути якесь число флоу ?????
     uint32_t flow_sequence = htonl(0); // Заглушка
     uint8_t engine_type = 0;
@@ -39,6 +43,9 @@ void prepare_header(int amount_of_flows, char* buffer){
     memcpy(buffer + 21, &engine_id, 1);
     memcpy(buffer + 22, &sampling_interval, 2);
 
+    //test only
+    amount1++;
+
 }
 void prepare_body(const Flow& flow, char *buffer){
     struct in_addr src, dst;
@@ -55,8 +62,10 @@ void prepare_body(const Flow& flow, char *buffer){
     memcpy(buffer + 16, &packet_count, 4);
     memcpy(buffer + 20, &byte_count, 4);
 
-    uint32_t start_time = htonl(flow.first_packet_time.tv_sec);
-    uint32_t end_time = htonl(flow.last_packet_time.tv_sec);
+    uint32_t start_time = flow.first_packet_time.tv_sec - boot_time.tv_sec;
+    uint32_t end_time = flow.last_packet_time.tv_sec - boot_time.tv_sec;
+//    uint32_t end_time = flow.last_packet_time.timestamp - boot_time.timestamp;
+
     memcpy(buffer + 24, &start_time, 4);
     memcpy(buffer + 28, &end_time, 4);
 
@@ -65,10 +74,24 @@ void prepare_body(const Flow& flow, char *buffer){
     memcpy(buffer + 32, &src_port, 2);
     memcpy(buffer + 34, &dst_port, 2);
 
+    memset(buffer + 36, 0, 1);
+
+    uint8_t tcp_flags = flow.tcp_flags;  // Očekáváme, že flow obsahuje tcp_flags
+    memcpy(buffer + 37, &tcp_flags, 1);
+    uint8_t protocol = 6;  // TCP protokol
+    memcpy(buffer + 38, &protocol, 1);
+    uint8_t tos = flow.tos;  // Očekáváme, že flow obsahuje TOS
+    memcpy(buffer + 39, &tos, 1);
+
+    memset(buffer + 40, 0, 8); //rest is unknown
+
+
+
+
+
     //ДОПОВНИТИ ТЕ ЩО ЛИШИЛОСЬ 0 ?? ЧИ МОЖЕ ТАЙП ОФ СЕРВІС НЕ НУЛЬ ?? МАСКА 32?? (зі стріму)
 
-//test only
-amount1++;
+
 }
 
 void send_to_collector(const std::string& collector_ip, int port, const std::vector<Flow>& flows) {
@@ -111,10 +134,11 @@ void send_to_collector(const std::string& collector_ip, int port, const std::vec
         }
         // Відправляємо пакет
         sendto(sock, buffer, HEADER_SIZE + RECORD_SIZE * current_count, 0, (struct sockaddr *) &collector_addr,sizeof(collector_addr));
-//        std::cout << "sent packets number " << amount1 << "\n " ;
+
 
     }
     close(sock);
+    std::cout << "  Amount of udp : " << amount1 << "\n " ;
 }
 
 
