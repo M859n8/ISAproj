@@ -17,10 +17,8 @@
 #include <unistd.h> // close
 #include <vector>
 #include <sys/time.h>
-//#include "sendUDP.h"
 
 #define PCAP_ERRBUF_SIZE 256
-//#define INET_ADDRSTRLEN
 
 //struct for input arguments
 typedef struct {
@@ -29,11 +27,12 @@ typedef struct {
     char* file_path;
     int act_timeout;
     int inact_timeout;
-} Arguments;
 
+    int sequence_flow ;
+} Arguments;
+//struct for flow
 struct Flow {
-    // Struktura reprezentující tok
-    std::string src_ip; //char* ??
+    std::string src_ip;
     std::string dst_ip;
     uint16_t src_port;
     uint16_t dst_port;
@@ -41,40 +40,43 @@ struct Flow {
     uint32_t byte_count;
     struct timeval first_packet_time;
     struct timeval last_packet_time;
+    uint8_t tcp_flags;
+    uint8_t tos; //type of Service
+
+    uint8_t flow_num;
 
 
-    uint8_t tcp_flags;  // TCP flags (např. SYN, ACK, FIN)
-    uint8_t tos;        // Type of Service
-    bool send;
-
-//    std::chrono::system_clock::time_point first_packet_time;
-//    std::chrono::system_clock::time_point last_packet_time;
 };
 
 
-
-
-// Hashovací tabulka pro ukládání toků
-extern std::unordered_map<std::string, struct Flow> flow_table;
+extern std::unordered_map<std::string, struct Flow> flow_table; //hash table for flows
 extern Arguments input_val;
 extern std::vector<Flow> flows_to_send;
-extern struct timeval boot_time;
+extern struct timeval boot_time; //start of the program time
 
-//test only
-extern int amount ;
-
+//function that calculate ip address by name
 char *get_host_by_name(char *hostname);
+//parse input arguments
 int input_parse(int argc, char *argv[], Arguments *value);
+//function for packet processing
+void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, const u_char *packet);
+//function that creates hash key from src/dst ip, src/dst port
+std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port);
+//function that creates flow
 Flow create_flow(const std::string& src_ip, const std::string& dst_ip, int src_port,
                  int dst_port, int bytes,  struct timeval time, uint8_t tos, uint8_t tcp_flags);
-std::string create_hash_key(const std::string& src_ip, const std::string& dst_ip, uint16_t src_port, uint16_t dst_port);
-void print_flows();
+//function that checks timers expiration
 void check_timers(struct timeval current_time);
-long time_diff_in_seconds(const struct timeval& start, const struct timeval& end);
+//function that exports flows
 void export_flows();
+//function that exports remaining flows after processing all packets from a file
 void send_remains();
 
+//sendUDP.cpp
+uint32_t get_time_diff(struct timeval start_time, struct timeval end_time);
 void send_to_collector(const std::string& collector_ip, int collector_port, const std::vector<Flow>& flows);
-int prepare_flow_data(const Flow& flow, char* buffer) ;
+void prepare_header(int amount_of_flows, char* buffer, int flow_seq);
+void prepare_body(const Flow& flow, char *buffer);
+void send_to_collector(const std::string& collector_ip, int port, const std::vector<Flow>& flows);
 
 #endif //P2NPROBE_H
