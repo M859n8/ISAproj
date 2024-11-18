@@ -89,7 +89,7 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
 
     struct timeval time = pcap_head->ts;
     check_timers(time);
-    //prepare_to_send();
+    export_flows();
 
     uint16_t src_port = ntohs(tcp_head->source);
     uint16_t dst_port = ntohs(tcp_head->dest);
@@ -198,39 +198,25 @@ void check_timers(struct timeval current_time) {
     }
 }
 
+
+
 // Вибір флоу з send == true і надсилання їх на колектор
-void prepare_to_send() {
-//    std::cout << "entered prepare to send \n " ;
-//    std::vector<Flow> flows_to_send;
-    //test only
-//    std::cout << "flows table size :  " << flow_table.size()  << " \n " ;
-
-    for (auto itr = flow_table.begin(); itr != flow_table.end();) {
-        if (itr->second.send) {
-            flows_to_send.push_back(itr->second);
-            itr = flow_table.erase(itr); // Видалення флоу після вибору
-        } else {
-            ++itr;
-        }
-
-//        std::cout << "  flows count  " << flows_to_send.size() << "\n";
-
-        // Якщо зібрано 30 флоу, відправляємо їх
-//        if (flows_to_send.size() == 30) {
-//            std::cout << "reach count 30 \n " ;
-//
-//            send_to_collector(input_val.addr, input_val.port, flows_to_send);
-//            flows_to_send.clear();
+void export_flows() {
+//    for (auto itr = flow_table.begin(); itr != flow_table.end();) {
+//        if (itr->second.send) {
+//            flows_to_send.push_back(itr->second);
+//            itr = flow_table.erase(itr); // Видалення флоу після вибору
+//        } else {
+//            ++itr;
 //        }
-    }
-//    std::cout << "send remaining flows \n " ;
-//
+
 //    // Надсилаємо залишок, якщо є
     if (!flows_to_send.empty()) {
 //        std::cout << "Sending ... " << amount << " \n " ;
 //        std::cout << "flows to sent size :  " << flows_to_send.size() << " \n " ;
 
         send_to_collector(input_val.addr, input_val.port, flows_to_send);
+        flows_to_send.clear();
     }
 }
 

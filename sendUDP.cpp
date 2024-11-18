@@ -14,6 +14,14 @@ int prepare_flow_data(const Flow& flow, char* buffer) {
     return snprintf(buffer, 1024, "Flow data");
 }
 
+uint32_t get_time_diff(struct timeval start_time, struct timeval end_time){
+    uint32_t time_diff_us  =(end_time.tv_sec - start_time.tv_sec) * 1000000ULL +
+                            (end_time.tv_usec - start_time.tv_usec);
+    uint32_t time_diff = time_diff_us / 1000;
+    uint32_t time_diff_endian = htonl(time_diff);
+    return time_diff_endian;
+}
+
 void prepare_header(int amount_of_flows, char* buffer){
     // Заповнюємо заголовок
     uint16_t version = htons(5);
@@ -22,16 +30,17 @@ void prepare_header(int amount_of_flows, char* buffer){
     struct timeval current_time;
     gettimeofday(&current_time, NULL);
 
-    uint32_t sys_uptime  =(current_time.tv_sec - boot_time.tv_sec) * 1000 +
-                        (current_time.tv_usec - boot_time.tv_usec) / 1000;
-//    uint32_t sys_uptime = current_time.tv_usec - boot_time.tv_usec; // Заглушка
-    uint32_t sys_uptime_network = htonl(sys_uptime);
-    std::cout << "Boot time : " << boot_time.tv_sec <<" . "<<boot_time.tv_usec<< "\n " ;
-    std::cout << "Current time : "  << current_time.tv_sec <<" . "<< current_time.tv_usec<< "\n " ;
-    std::cout << "Sys up time : "  << sys_uptime << "\n " ;
-    std::cout << "Sys up time (network order): " << sys_uptime_network << "\n";
+//    uint32_t sys_uptime_us  =(current_time.tv_sec - boot_time.tv_sec) * 1000000ULL +
+//                          (current_time.tv_usec - boot_time.tv_usec);
+//    uint32_t sys_uptime = sys_uptime_us / 1000;
+//    uint32_t sys_uptime_network = htonl(sys_uptime);
 
+//    std::cout << "Boot time : " << boot_time.tv_sec <<" . "<<boot_time.tv_usec<< "\n " ;
+//    std::cout << "Current time : "  << current_time.tv_sec <<" . "<< current_time.tv_usec<< "\n " ;
+//    std::cout << "Sys up time : "  << sys_uptime << "\n " ;
+//    std::cout << "Sys up time (network order): " << sys_uptime_network << "\n";
 
+    uint32_t sys_uptime = get_time_diff(boot_time, current_time);
 
     uint32_t unix_secs = htonl(current_time.tv_sec); // Поточний час
     uint32_t unix_nsecs = htonl(current_time.tv_usec * 1000); // Заглушка
@@ -44,7 +53,7 @@ void prepare_header(int amount_of_flows, char* buffer){
 
     memcpy(buffer, &version, 2);
     memcpy(buffer + 2, &count, 2);
-    memcpy(buffer + 4, &sys_uptime_network, 4);
+    memcpy(buffer + 4, &sys_uptime, 4);
     memcpy(buffer + 8, &unix_secs, 4);
     memcpy(buffer + 12, &unix_nsecs, 4);
     memcpy(buffer + 16, &flow_sequence, 4);
@@ -88,23 +97,28 @@ void prepare_body(const Flow& flow, char *buffer){
 //    uint32_t start_time = (flow.first_packet_time.tv_sec) * 1000 + (flow.first_packet_time.tv_usec)/1000;
 //    uint32_t end_time = (flow.last_packet_time.tv_sec) * 1000 + (flow.last_packet_time.tv_usec)/1000;
 
-    uint32_t start_time = (flow.first_packet_time.tv_sec - boot_time.tv_sec) * 1000
-                          + (flow.first_packet_time.tv_usec - boot_time.tv_usec) / 1000;
-
-    uint32_t end_time = (flow.last_packet_time.tv_sec - boot_time.tv_sec) * 1000
-                        + (flow.last_packet_time.tv_usec - boot_time.tv_usec) / 1000;
-
-    uint32_t start_time_endian = htonl(start_time);
-    uint32_t end_time_endian = htonl(end_time);
-
-    std::cout << "Flow "<< amount1 << " first time : " << start_time << ", last time : " << end_time << "\n";
-
-    std::cout << "Duration in mili sec : " << (end_time - start_time ) << "\n";
-    std::cout << "Sending time  "<< amount1 << " first time : " << start_time_endian << ", last time : " << end_time_endian << "\n";
+//    uint32_t start_time_us = (flow.first_packet_time.tv_sec - boot_time.tv_sec) * 1000000ULL
+//                          + (flow.first_packet_time.tv_usec - boot_time.tv_usec) ;
+//
+//    uint32_t start_time = start_time_us / 1000;
+//
+//    uint32_t end_time_us = (flow.last_packet_time.tv_sec - boot_time.tv_sec)* 1000000ULL
+//                        + (flow.last_packet_time.tv_usec - boot_time.tv_usec) ;
+//    uint32_t end_time = end_time_us / 1000;
 
 
-    memcpy(buffer + 24, &start_time_endian, 4);
-    memcpy(buffer + 28, &end_time_endian, 4);
+    uint32_t start_time = get_time_diff(boot_time, flow.first_packet_time);
+    ;
+    uint32_t end_time = get_time_diff(boot_time, flow.last_packet_time);
+
+//    std::cout << "Flow "<< amount1 << " first time : " << start_time << ", last time : " << end_time << "\n";
+//
+//    std::cout << "Duration in mili sec : " << (end_time - start_time ) << "\n";
+//    std::cout << "Sending time  "<< amount1 << " first time : " << start_time_endian << ", last time : " << end_time_endian << "\n";
+
+
+    memcpy(buffer + 24, &start_time, 4);
+    memcpy(buffer + 28, &end_time, 4);
 
     uint16_t src_port = htons(flow.src_port);
     uint16_t dst_port = htons(flow.dst_port);
@@ -175,7 +189,7 @@ void send_to_collector(const std::string& collector_ip, int port, const std::vec
 
     }
     close(sock);
-    std::cout << "  Amount of udp : " << amount1 << "\n " ;
+//    std::cout << "  Amount of udp : " << amount1 << "\n " ;
 }
 
 
