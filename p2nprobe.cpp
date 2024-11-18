@@ -118,6 +118,12 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
         bytes_count +=bytes; //test only
 
 //        std::cout << "upd flow" <<  flow_table[key].packet_count << " packet numb " << packets << "\n";
+//        if(flow.first_packet_time.tv_sec != flow.last_packet_time.tv_sec){
+//            std::cout << "New flow, first time : " << flow.first_packet_time.tv_sec << ", last time : " << flow.last_packet_time.tv_sec << "\n";
+//
+//        }
+
+
 
     } else {
         packets++;//test only
@@ -127,6 +133,8 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pcap_head, cons
         flow_table[key] = new_flow;
 
 //        std::cout << "  new flow" << amount << " packet numb " << packets << "\n";
+//        std::cout << "New flow, first time : " << new_flow.first_packet_time.tv_sec << ", last time : " << new_flow.last_packet_time.tv_sec << "\n";
+
 
     }
 
