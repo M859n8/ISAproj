@@ -2,7 +2,7 @@
 
 #include "p2nprobe.h"
 
-
+// Визначення змінних
 std::unordered_map<std::string, struct Flow> flow_table;
 Arguments input_val;
 std::vector<Flow> flows_to_send;
