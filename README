@@ -1,27 +1,28 @@
  # README
 
  ## Autor
- - **Jméno**: Maryna Kucher
+ - **Name**: Maryna Kucher
  - **Login**: xkuche01
 
- ## Datum vytvoření
- - **Datum vytvoření**: 18.11.2024
+ ## Creation date
+ - **Creation date**: 18.11.2024
 
- ## Popis programu
- Projekt zaměřen na extrakci informací o TCP tocích ze souboru PCAP a jejich odeslání
- ve formátu NetFlow v5 do síťového kolektoru. Program pracuje se soubory PCAP, které obsahují
- zachycený síťový provoz, a na základě těchto dat identifikuje a sloučí toky TCP. Tyto
- informace budou poté odeslány do kolektoru NetFlow.
+ ## Program Description
+The project focuses on extracting information about TCP flows from a PCAP 
+file and sending them in NetFlow v5 format to a network collector. 
+The program works with PCAP files containing captured network traffic, 
+identifies, and merges TCP flows based on this data. These flow details 
+are then sent to a NetFlow collector.
 
- ## Příklad spuštění
- Příklad spuštění programu:
+ ## Example Execution
+ Example Execution:
  ```bash
  ./p2nprobe <host>:<port> <pcap_file_path> [-a <active_timeout> -i <inactive_timeout>]
-
-  ## Seznam odevzdaných souborů
-  - manual.pdf : dokumentace
+```
+  ## List of Submitted Files
+  - manual.pdf : dokumentation
   - README
   - Makefile
-  - p2nprobe.cpp : zdrojove kody
-  - p2nprobe.h : zdrojove kody
-  - sendUDP.cpp : zdrojove kody
+  - p2nprobe.cpp : Source code
+  - p2nprobe.h : Source code
+  - sendUDP.cpp : Source code

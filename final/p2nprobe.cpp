@@ -2,15 +2,12 @@
 
 #include "p2nprobe.h"
 
-// Визначення змінних
+
 std::unordered_map<std::string, struct Flow> flow_table;
 Arguments input_val;
 std::vector<Flow> flows_to_send;
 struct timeval boot_time;
-//test only
-int amount = 0;
-int packets = 0;
-int bytes_count = 0;
+
 
 //function that calculate ip address by name
 //the function is taken from my IPK project
